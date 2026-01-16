@@ -199,5 +199,3 @@ Measurement protocols may respond — or not.
 
 Understanding this chain is part of learning how to design
 **rigorous, falsifiable signal analysis systems**.
-
-No obligation follows from this understanding.
