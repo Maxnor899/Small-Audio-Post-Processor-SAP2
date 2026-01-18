@@ -3,7 +3,7 @@
 ## What this project is
 
 **SAP²** (Small Audio Post-Processor) is a research-oriented tool designed to explore  
-**whether known audio decoding methods *could* be applied** to a given signal —  
+**whether known audio decoding methods *could* be applied** to a given signal   
 *before* attempting any actual decoding.
 
 SAP² does **not** analyze raw audio files.  
@@ -37,7 +37,7 @@ SAP² asks:
 > “Given what we measured,  
 > are the *inputs required by known decoding methods* even present?”
 
-Very often, the honest answer is **no** — and that is a perfectly valid result.
+Very often, the honest answer is **no** , and that is a perfectly valid result.
 
 ---
 
@@ -47,7 +47,7 @@ SAP² is built around four core ideas:
 
 ### 1. Decoding methods have *formal input requirements*
 
-Every real, documented decoding method — Morse, pulse-based binary, FSK, frame-based protocols, modulation schemes, etc. — expects **specific types of inputs**:
+Every real, documented decoding method like morse, pulse-based binary, FSK, frame-based protocols, modulation schemes, etc. expects **specific types of inputs**:
 
 - events,
 - durations,
@@ -97,7 +97,7 @@ One of SAP²’s most important outputs can be:
 
 > *“No known decoding method is compatible with the available inputs.”*
 
-This is not a limitation — it is a **result**.
+This is not a limitation : it is a **result**.
 
 ---
 
@@ -152,7 +152,7 @@ SAP2/
 │   └── 05_RELATION_TO_SAT.md
 ```
 
-The documentation is **not ancillary** — it *is* the project.
+The documentation is **not ancillary** , it *is* the project.
 
 ---
 
