@@ -19,11 +19,11 @@ This is an architecture document, not an implementation guide.
 SAP² operates **only on measurements** produced by upstream tools (primarily Small Audio Toolkit / SAT).
 
 SAP² is responsible for:
-1. Loading structured measurement outputs (`results.json` and optionally `config_used.json`)
-2. Building **typed intermediate inputs** (the “input grammar”)
+1. Loading structured measurement outputs (`results.json`)
+2. Building **typed intermediate inputs** (the "input grammar")
 3. Checking **structural applicability** of decoding methods
-4. Attempting decoding **only when justified**
-5. Producing transparent outputs (reports + machine-readable artifacts)
+4. Attempting decoding **only when justified** (Phase 3)
+5. Producing transparent outputs (reports + machine-readable artifacts) (Phase 3)
 
 SAP² does not:
 - process raw audio,
@@ -40,65 +40,69 @@ SAP² is designed around strict separation of responsibilities:
 - **Model**: typed in-memory representations of SAT results and SAP² inputs
 - **Grammar builders**: construct input families (E, Δ, S, V, M, R)
 - **Applicability**: decide whether a decoding method can be attempted (with reasons)
-- **Decoders**: attempt decoding, producing experiments and diagnostics
-- **Engine**: orchestrate the pipeline and enforce ordering
-- **Render**: produce reports and exports
+- **Decoders**: attempt decoding, producing experiments and diagnostics (Phase 3)
+- **Engine**: orchestrate the pipeline and enforce ordering (Phase 3)
+- **Render**: produce reports and exports (Phase 3)
 - **Tests**: verify contracts, reproducibility, and refusal cases
 
-No component should “reach across” layers.
+No component should "reach across" layers.
 
 ---
 
 ## 3. Repository layout
 
-Recommended layout (Python package `sap2`):
+Current implementation (Python package `sap2`):
 
 ```
 SAP2/
 ├── README.md
 ├── docs/
 │   └── (documentation set)
-├── pyproject.toml
+├── CONTRIBUTING
+├── LICENSE
 ├── sap2/
 │   ├── __init__.py
-│   ├── cli.py
 │   ├── io/
-│   │   ├── load_sat.py
-│   │   └── validation.py
+│   │   ├── __init__.py
+│   │   └── load_sat.py
 │   ├── model/
-│   │   ├── sat_results.py
+│   │   ├── __init__.py
 │   │   ├── inputs.py
-│   │   ├── applicability.py
-│   │   └── experiments.py
+│   │   └── applicability.py
 │   ├── grammar/
-│   │   ├── registry.py
+│   │   ├── __init__.py
+│   │   ├── bundle_builder.py
 │   │   └── builders/
+│   │       ├── __init__.py
 │   │       ├── events.py
 │   │       ├── intervals.py
 │   │       ├── symbols.py
 │   │       ├── vectors.py
 │   │       ├── matrices.py
 │   │       └── relations.py
-│   ├── applicability/
-│   │   ├── matrix.py
-│   │   ├── checks.py
-│   │   └── diagnostics.py
-│   ├── decoders/
-│   │   ├── base.py
-│   │   ├── registry.py
-│   │   └── (decoders live here)
-│   ├── engine/
-│   │   ├── pipeline.py
-│   │   ├── provenance.py
-│   │   └── experiment_runner.py
-│   └── render/
-│       ├── markdown.py
-│       └── json.py
+│   └── applicability/
+│       ├── __init__.py
+│       ├── matrix.py
+│       ├── matrix_loader.py
+│       ├── params.py
+│       ├── checks.py
+│       └── matrices/
+│           ├── _index.yaml
+│           ├── matrix.schema.json
+│           ├── time_domain.yaml
+│           ├── frequency_domain.yaml
+│           ├── time_frequency.yaml
+│           ├── modulation.yaml
+│           ├── inter_channel.yaml
+│           └── statistical.yaml
 └── tests/
     └── (unit tests)
 ```
 
-The exact file names can change, but the **boundaries must remain**.
+**Future modules** (Phase 3):
+- `sap2/decoders/` - actual decoding implementations
+- `sap2/engine/` - pipeline orchestration
+- `sap2/render/` - output generation
 
 ---
 
@@ -106,60 +110,167 @@ The exact file names can change, but the **boundaries must remain**.
 
 ### 4.1 `SatResults` (normalized measurement input)
 
-`SatResults` is a typed representation of the upstream `results.json`.
+Defined in: `sap2/io/load_sat.py`
 
-Minimum responsibilities:
-- hold metadata (sample rate, channels, duration, tool version if available)
-- expose method results by name and channel
+`SatResults` is a typed wrapper around the upstream `results.json`.
+
+It provides typed methods and properties for accessing measurements, while the measurements themselves remain as flexible dictionaries (to accommodate SAT's evolving output format).
+
+Responsibilities:
+- hold metadata (sample rate, channels, duration)
+- expose method results by name and channel via `get_method(name, channel)`
+- expose method parameters via `get_method_metrics(name)`
 - provide a stable access API even if SAT output evolves
 
-It should support both:
+It supports both:
 - `path/to/results.json`
 - `path/to/output_dir/` (where results.json is found inside)
 
-### 4.2 `InputBundle` (SAP² input grammar instance)
+### 4.2 `Provenance` (traceability)
 
-`InputBundle` aggregates the six input families:
+Defined in: `sap2/model/inputs.py`
 
-- **E** (events)
-- **Δ** (intervals/durations)
-- **S** (symbol streams)
-- **V** (feature vectors / stats)
-- **M** (matrices / fields)
-- **R** (relations / inter-channel)
+Documents the origin of an Input:
 
-Each family must support explicit states:
-- **present** with data
-- **missing** with a reason
-- **ambiguous/unstable** with diagnostics
+```python
+@dataclass(frozen=True)
+class Provenance:
+    sat_methods: List[str]              # SAT methods used
+    sat_params: Dict[str, Dict]         # Parameters/metrics from SAT
+    builder_version: str                # Builder version
+    timestamp: str                      # ISO timestamp
+    
+    @classmethod
+    def create(...) -> Provenance:      # Factory with auto-timestamp
+```
 
-### 4.3 `ApplicabilityReport`
+### 4.3 `Input` (single input family)
 
-For a given decoder candidate:
+Defined in: `sap2/model/inputs.py`
 
-- `status`: one of
-  - `applicable`
-  - `missing_inputs`
-  - `underconstrained`
-  - `ambiguous`
-  - `not_applicable`
-- `required_inputs`: set of grammar families
-- `reasons`: list of factual reasons
-- `supporting_metrics`: optional numeric evidence (no scores)
+Represents one input family instance (E, Δ, S, V, M, or R):
 
-### 4.4 `ExperimentResult`
+```python
+@dataclass(frozen=True)
+class Input:
+    family: str                         # E, Δ, S, V, M, or R
+    available: bool                     # Factual presence/absence
+    data: Optional[Any]                 # Optional payload
+    provenance: Provenance              # Complete traceability
+    metrics: Dict[str, float]           # Factual numeric descriptors
+    notes: List[str]                    # Factual observations
+```
 
-Represents a decoding attempt:
+Each family supports explicit states:
+- **available=True** with data and metrics
+- **available=False** with reason in notes
+
+No judgment occurs in Input creation — only factual observation.
+
+### 4.4 `InputBundle` (complete input set)
+
+Defined in: `sap2/model/inputs.py`
+
+`InputBundle` aggregates all six input families:
+
+```python
+@dataclass(frozen=True)
+class InputBundle:
+    inputs: Mapping[str, Input]         # Must contain E, Δ, S, V, M, R
+    channel: str                        # Channel identifier
+```
+
+All six families (E, Δ, S, V, M, R) must be present, even if unavailable.
+
+### 4.5 `ApplicabilityParams` (explicit thresholds)
+
+Defined in: `sap2/applicability/params.py`
+
+Explicit, documented, overridable thresholds for applicability evaluation:
+
+```python
+@dataclass
+class ApplicabilityParams:
+    min_regularity: float = 0.1
+    max_cv: float = 1.0
+    min_symbol_balance: float = 0.2
+    min_vector_sources: int = 3
+    min_matrix_windows: int = 10
+    accept_matrix_proxies: bool = False
+    min_relation_types: int = 1
+```
+
+All thresholds are visible and adjustable by the user.
+
+### 4.6 `MethodRequirements` (method specification)
+
+Defined in: `sap2/applicability/matrix.py`
+
+Describes requirements for a single decoding method:
+
+```python
+@dataclass(frozen=True)
+class MethodRequirements:
+    method_id: str                      # Unique identifier
+    family: str                         # time_domain, frequency_domain, etc.
+    label: str                          # Human-readable name
+    requires: Mapping[str, str]         # E/Δ/S/V/M/R → required/optional/not_applicable
+    source_file: str                    # Which YAML defined it
+```
+
+Requirements are loaded from YAML files, not hardcoded.
+
+### 4.7 `ApplicabilityMatrix` (all methods)
+
+Defined in: `sap2/applicability/matrix.py`
+
+Collection of all method requirements:
+
+```python
+@dataclass(frozen=True)
+class ApplicabilityMatrix:
+    schema_version: str
+    methods: Mapping[str, MethodRequirements]
+```
+
+Loaded via `load_applicability_matrix(matrices_dir)` from YAML files in `matrices_dir/` (`_index.yaml` declares family-specific YAMLs: `time_domain.yaml`, `frequency_domain.yaml`, etc.).
+
+### 4.8 `ApplicabilityReport` (evaluation result)
+
+Defined in: `sap2/model/applicability.py`
+
+Result of evaluating whether a method can be applied:
+
+```python
+@dataclass(frozen=True)
+class ApplicabilityReport:
+    method_id: str
+    family: str
+    label: str
+    status: str                         # applicable/missing_inputs/underconstrained/not_applicable
+    required_inputs: List[str]
+    missing_inputs: Dict[str, str]      # family → reason
+    unstable_inputs: Dict[str, str]     # family → reason
+    diagnostics: List[str]              # Factual observations
+    provenance: Dict[str, str]          # Evaluation context
+```
+
+Status values:
+- `applicable`: all required inputs present and stable
+- `missing_inputs`: at least one required input unavailable
+- `underconstrained`: required inputs exist but unstable
+- `not_applicable`: structural incompatibility (reserved; not emitted by current implementation)
+
+### 4.9 `ExperimentResult` (Phase 3)
+
+Represents a decoding attempt (to be implemented in Phase 3):
 
 - decoder name + version
 - parameters used
 - inputs referenced (provenance)
 - output artifacts (symbol streams, frames, bits, etc.)
 - diagnostics (instability, sensitivity, failure explanations)
-- outcome classification:
-  - `produced_output`
-  - `failed_cleanly`
-  - `aborted_not_applicable`
+- outcome classification
 
 No experiment result may claim semantic meaning.
 
@@ -167,39 +278,139 @@ No experiment result may claim semantic meaning.
 
 ## 5. Pipeline (execution order)
 
-SAP² enforces a strict pipeline:
+Current implementation (Phases 1-2):
 
 1. **Load**
-   - load `results.json` (+ optional `config_used.json`)
+   - load `results.json` via `SatResults.load()`
    - normalize to `SatResults`
 2. **Build inputs**
-   - run grammar builders to produce `InputBundle`
-3. **Check applicability**
-   - for each decoder, compute `ApplicabilityReport`
-4. **Attempt decoding**
-   - only for `applicable` (and optionally `underconstrained` if user forces)
-5. **Render outputs**
-   - write machine artifacts + a human report
+   - run 6 grammar builders via `build_input_bundle()`
+   - produce `InputBundle` (one per channel)
+3. **Load requirements**
+   - load `ApplicabilityMatrix` from YAML via `load_applicability_matrix()`
+4. **Check applicability**
+   - for each method, call `evaluate_applicability(method, bundle, params)`
+   - produce `ApplicabilityReport`
 
-The pipeline must be deterministic given the same inputs and parameters.
+Future (Phase 3):
+5. **Attempt decoding**
+   - only for `applicable` (and optionally `underconstrained` if user forces)
+6. **Render outputs**
+   - write machine artifacts + human report
+
+The pipeline is deterministic given the same inputs and parameters.
 
 ---
 
-## 6. Plugin registries
+## 6. Grammar builders
 
-Two registries are central to extensibility:
+### 6.1 Builder contract
 
-### 6.1 Grammar builder registry
+Each builder implements:
 
-- builders declare which family they produce (E/Δ/S/V/M/R)
-- builders declare which SAT measurements they require
-- builders return a `BuildResult` (present/missing/unstable + provenance)
+```python
+def build_<family>(sat: SatResults, channel: str) -> Input:
+    """Build input family from SAT measurements."""
+```
 
-### 6.2 Decoder registry
+Builders:
+- **observe** measurements without judgment
+- report **factual metrics** (no thresholds applied)
+- document **complete provenance**
+- return `Input` with `available=True/False`
+
+### 6.2 Builder orchestration
+
+`build_input_bundle()` orchestrates all 6 builders:
+
+```python
+def build_input_bundle(sat: SatResults, channel: str) -> InputBundle:
+    return InputBundle(
+        inputs={
+            'E': build_events(sat, channel),
+            'Δ': build_intervals(sat, channel),
+            'S': build_symbols(sat, channel),
+            'V': build_vectors(sat, channel),
+            'M': build_matrices(sat, channel),
+            'R': build_relations(sat, channel)
+        },
+        channel=channel
+    )
+```
+
+No registry pattern in v1 — direct function calls.
+
+---
+
+## 7. Applicability system
+
+### 7.1 Requirements (YAML)
+
+Method requirements are defined in multiple YAML files organized by family.
+
+The `matrices_dir/` contains:
+- `_index.yaml` - declares which YAML files to load
+- `matrix.schema.json` - validation schema
+- Family-specific YAMLs (`time_domain.yaml`, `frequency_domain.yaml`, etc.)
+
+Example of a family YAML:
+
+```yaml
+# time_domain.yaml
+schema_version: "1.0"
+family: "time_domain"
+
+methods:
+  duration_based_morse_like:
+    label: "Duration-based (Morse-like)"
+    requires:
+      E: required
+      Δ: required
+      S: optional
+      V: not_applicable
+      M: not_applicable
+      R: not_applicable
+```
+
+All requirements are:
+- external to code (no hardcoding)
+- organized by family in separate YAML files
+- versioned (schema_version in each file)
+- validated against JSON schema at load time
+
+### 7.2 Loading requirements
+
+```python
+from sap2.applicability.matrix_loader import load_applicability_matrix
+
+matrix = load_applicability_matrix(Path('sap2/applicability/matrices'))
+# → ApplicabilityMatrix with all methods
+```
+
+### 7.3 Evaluating applicability
+
+```python
+from sap2.applicability.checks import evaluate_applicability
+from sap2.applicability.params import ApplicabilityParams
+
+params = ApplicabilityParams()  # or custom thresholds
+method = matrix.methods['duration_based_morse_like']
+bundle = build_input_bundle(sat, 'left')
+
+report = evaluate_applicability(method, bundle, params)
+# → ApplicabilityReport
+```
+
+Judgment happens in `checks.py` using **explicit params**, not in builders.
+
+---
+
+## 8. Decoders (Phase 3)
+
+Future decoder contract:
 
 - decoders declare required input families
 - each decoder implements:
-  - `applicable(bundle) -> ApplicabilityReport`
   - `decode(bundle, params) -> ExperimentResult`
 
 Decoders must not generate missing inputs.
@@ -207,23 +418,24 @@ They may only refuse or proceed with explicit assumptions.
 
 ---
 
-## 7. CLI (minimum viable interface)
+## 9. CLI (Phase 3)
 
-A minimal CLI should support:
+A minimal CLI will support:
 
 - `sap2 run <path>`
   - where `<path>` is `results.json` or a SAT output directory
 - options:
   - `--out <dir>` output directory
-  - `--only <decoder1,decoder2>` restrict to a subset
+  - `--only <method1,method2>` restrict to subset
   - `--channels <left,right,difference>` restrict channels
-  - `--force` allow running `underconstrained` experiments (explicitly marked)
+  - `--params <file>` custom ApplicabilityParams
+  - `--force` allow running `underconstrained` experiments
 
-The CLI must never hide assumptions.
+The CLI will never hide assumptions.
 
 ---
 
-## 8. Output structure
+## 10. Output structure (Phase 3)
 
 Suggested output layout:
 
@@ -241,46 +453,46 @@ sap2_output/
 └── report.md
 ```
 
-Notes:
-- exporting full matrices may be expensive; metadata-only is acceptable initially.
-- every exported artifact should include provenance fields.
+Every exported artifact will include provenance fields.
 
 ---
 
-## 9. Testing strategy
+## 11. Testing strategy
 
-SAP² should be tested primarily on **contracts and refusal behavior**.
+SAP² is tested primarily on **contracts and refusal behavior**.
 
-Recommended test categories:
+Test categories:
 
-- loading/normalization of SAT outputs
-- builders produce correct present/missing states
-- applicability matrix consistency (required inputs enforced)
-- decoders never run when required inputs are missing
-- deterministic outputs given fixed inputs and parameters
+- loading/normalization of SAT outputs ✓
+- builders produce correct available/unavailable states ✓
+- applicability matrix consistency (required inputs enforced) ✓
+- builders never apply thresholds ✓
+- checks correctly apply params ✓
+- deterministic outputs given fixed inputs ✓
 - regression tests on known SAT results fixtures
 
-Tests should prefer small fixtures to avoid heavy runtime.
+Tests prefer small fixtures to avoid heavy runtime.
 
 ---
 
-## 10. Non-goals (architectural constraints)
+## 12. Non-goals (architectural constraints)
 
-Architecture must explicitly prevent:
+Architecture explicitly prevents:
 
 - decoding without applicability checks
 - hidden scoring or probability labels
 - semantic interpretation
 - SAT coupling (no SAT imports or runtime dependency required)
+- builders applying thresholds (only checks.py judges)
 
-SAP² may be compatible with SAT outputs, but must remain logically independent.
+SAP² is compatible with SAT outputs, but logically independent.
 
 ---
 
-## 11. Future integration (optional)
+## 13. Future integration (optional)
 
 A later, optional integration may add a SAT-side helper that:
-- generates SAT protocols to produce inputs needed by specific SAP² decoders
+- generates SAT protocols to produce inputs needed by specific SAP² methods
 
 This must remain a separate tool or optional module to preserve SAT neutrality.
 
@@ -290,10 +502,15 @@ This must remain a separate tool or optional module to preserve SAT neutrality.
 
 SAP² is a two-stage reasoning system built on top of measurement outputs:
 
-- **SAT measures**
-- **SAP² builds typed inputs**
-- **SAP² checks applicability**
-- **SAP² attempts decoding as constrained experiments**
-- **SAP² reports outcomes and limits**
+**Current (Phases 1-2):**
+- **SAT measures** → `results.json`
+- **SAP² loads** → `SatResults`
+- **SAP² builds typed inputs** → `InputBundle` (observation without judgment)
+- **SAP² loads requirements** → `ApplicabilityMatrix` (from YAML)
+- **SAP² checks applicability** → `ApplicabilityReport` (judgment with explicit params)
+
+**Future (Phase 3):**
+- **SAP² attempts decoding** → `ExperimentResult` (as constrained experiments)
+- **SAP² reports outcomes** → reports + artifacts
 
 The architecture enforces methodological boundaries by construction.
