@@ -64,7 +64,7 @@ def build_relations(sat: SatResults, channel: str = None) -> Input:
                 if method_name in relations:
                     # Already have channel-specific, merge with global pairs
                     if isinstance(relations[method_name], dict):
-                        # Merge: global pairs take precedence only if key not present
+                        # Merge: channel-specific takes precedence (overwrites global on conflict)
                         merged = {**all_data, **relations[method_name]}
                         relations[method_name] = merged
                 else:

@@ -1,0 +1,1 @@
+"""SAP² Model - Core data types."""
