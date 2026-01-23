@@ -1,0 +1,19 @@
+schema_version: "1.0"
+family: "frequency_domain"
+
+methods:
+  frequency_presence_fsk_like:
+    label: "Frequency presence (FSK-like)"
+    requires: { E: not_applicable, Δ: not_applicable, S: optional, V: required, M: optional, R: not_applicable }
+
+  frequency_displacement:
+    label: "Frequency displacement"
+    requires: { E: not_applicable, Δ: not_applicable, S: optional, V: required, M: optional, R: not_applicable }
+
+  harmonic_structure_encoding:
+    label: "Harmonic structure encoding"
+    requires: { E: not_applicable, Δ: not_applicable, S: not_applicable, V: required, M: optional, R: not_applicable }
+
+  spectral_stability_encoding:
+    label: "Spectral stability encoding"
+    requires: { E: not_applicable, Δ: not_applicable, S: not_applicable, V: required, M: required, R: not_applicable }

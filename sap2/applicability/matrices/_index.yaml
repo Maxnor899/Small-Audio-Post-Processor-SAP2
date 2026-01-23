@@ -1,0 +1,16 @@
+schema_version: "1.0"
+input_families: ["E", "Δ", "S", "V", "M", "R"]
+
+matrices:
+  - file: "time_domain.yaml"
+    family: "time_domain"
+  - file: "frequency_domain.yaml"
+    family: "frequency_domain"
+  - file: "time_frequency.yaml"
+    family: "time_frequency"
+  - file: "modulation.yaml"
+    family: "modulation"
+  - file: "inter_channel.yaml"
+    family: "inter_channel"
+  - file: "statistical.yaml"
+    family: "statistical"

@@ -1,0 +1,27 @@
+schema_version: "1.0"
+family: "time_domain"
+
+methods:
+  duration_based_morse_like:
+    label: "Duration-based (Morse-like)"
+    requires: { E: required, Δ: required, S: optional, V: not_applicable, M: not_applicable, R: not_applicable }
+
+  pulse_presence_absence:
+    label: "Pulse presence / absence"
+    requires: { E: required, Δ: optional, S: required, V: not_applicable, M: not_applicable, R: not_applicable }
+
+  pulse_duration_binary:
+    label: "Pulse duration binary"
+    requires: { E: required, Δ: required, S: required, V: not_applicable, M: not_applicable, R: not_applicable }
+
+  temporal_ratio_encoding:
+    label: "Temporal ratio encoding"
+    requires: { E: required, Δ: required, S: optional, V: not_applicable, M: not_applicable, R: not_applicable }
+
+  frame_based_temporal_encoding:
+    label: "Frame-based temporal encoding"
+    requires: { E: required, Δ: required, S: optional, V: not_applicable, M: not_applicable, R: not_applicable }
+
+  clock_plus_data_temporal_encoding:
+    label: "Clock + data temporal encoding"
+    requires: { E: required, Δ: required, S: optional, V: not_applicable, M: not_applicable, R: not_applicable }

@@ -1,0 +1,15 @@
+schema_version: "1.0"
+family: "modulation"
+
+methods:
+  amplitude_modulation_am:
+    label: "Amplitude modulation (AM)"
+    requires: { E: optional, Δ: required, S: optional, V: required, M: not_applicable, R: not_applicable }
+
+  frequency_modulation_fm:
+    label: "Frequency modulation (FM)"
+    requires: { E: optional, Δ: required, S: optional, V: required, M: not_applicable, R: not_applicable }
+
+  phase_modulation:
+    label: "Phase modulation"
+    requires: { E: not_applicable, Δ: not_applicable, S: optional, V: required, M: not_applicable, R: required }

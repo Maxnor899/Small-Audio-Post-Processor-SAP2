@@ -1,0 +1,15 @@
+schema_version: "1.0"
+family: "inter_channel"
+
+methods:
+  left_right_difference_encoding:
+    label: "Left–right difference encoding"
+    requires: { E: not_applicable, Δ: not_applicable, S: not_applicable, V: required, M: optional, R: required }
+
+  inter_channel_time_delay:
+    label: "Inter-channel time delay"
+    requires: { E: required, Δ: required, S: not_applicable, V: optional, M: not_applicable, R: required }
+
+  inter_channel_phase_encoding:
+    label: "Inter-channel phase encoding"
+    requires: { E: not_applicable, Δ: not_applicable, S: not_applicable, V: optional, M: not_applicable, R: required }

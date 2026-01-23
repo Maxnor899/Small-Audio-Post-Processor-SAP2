@@ -1,0 +1,15 @@
+schema_version: "1.0"
+family: "time_frequency"
+
+methods:
+  stft_pattern_encoding:
+    label: "STFT pattern encoding"
+    requires: { E: not_applicable, Δ: not_applicable, S: not_applicable, V: optional, M: required, R: not_applicable }
+
+  multi_band_temporal_encoding:
+    label: "Multi-band temporal encoding"
+    requires: { E: required, Δ: required, S: optional, V: required, M: optional, R: not_applicable }
+
+  multi_scale_wavelet_encoding:
+    label: "Multi-scale (wavelet) encoding"
+    requires: { E: not_applicable, Δ: not_applicable, S: not_applicable, V: optional, M: required, R: not_applicable }

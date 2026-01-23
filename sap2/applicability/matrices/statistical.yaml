@@ -1,0 +1,15 @@
+schema_version: "1.0"
+family: "statistical"
+
+methods:
+  entropy_based_encoding:
+    label: "Entropy-based encoding"
+    requires: { E: not_applicable, Δ: not_applicable, S: not_applicable, V: required, M: optional, R: not_applicable }
+
+  redundancy_compressibility_encoding:
+    label: "Redundancy / compressibility encoding"
+    requires: { E: not_applicable, Δ: not_applicable, S: not_applicable, V: required, M: not_applicable, R: not_applicable }
+
+  residual_noise_floor_encoding:
+    label: "Residual / noise-floor encoding"
+    requires: { E: not_applicable, Δ: not_applicable, S: not_applicable, V: optional, M: optional, R: not_applicable }
