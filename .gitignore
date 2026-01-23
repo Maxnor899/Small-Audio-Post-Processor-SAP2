@@ -1,2 +1,11 @@
 __pycache__/
 *.py[cod]
+sap2/__pycache__/
+sap2/applicability/__pycache__/
+sap2/decoders/__pycache__/
+sap2/decoders/time_domain/__pycache__/
+sap2/engine/__pycache__/
+sap2/grammar/__pycache__/
+sap2/io/__pycache__/
+sap2/model/__pycache__/
+sap2/render/__pycache__/
